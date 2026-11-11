@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Morse Survivors</title>
+  <meta name="description" content="Creatures are closing in. Key their names in Morse code to pop them before they reach you.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&family=Special+Elite&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script>
+    // Apply the saved theme before first paint to avoid a flash.
+    try {
+      var t = JSON.parse(localStorage.getItem('morseSurvivors.settings') || '{}').theme;
+      if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+    } catch (e) {}
+  </script>
+</head>
+<body>
+  <header class="topbar">
+    <h1>Morse <span>Survivors</span></h1>
+    <div class="hud">
+      <span id="hearts" class="hearts" aria-label="Hearts"></span>
+      <span class="stat" title="Creatures popped"><span aria-hidden="true">💥</span> <b id="score">0</b></span>
+      <span class="stat" title="Time survived"><span aria-hidden="true">⏱</span> <b id="clock">0:00</b></span>
+    </div>
+    <div class="buttons">
+      <button id="pauseBtn" class="icon-btn" aria-label="Pause" title="Pause (Esc)">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg>
+      </button>
+      <button id="openSettings" class="icon-btn" aria-label="Settings" title="Settings">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M19.4 13a7.5 7.5 0 0 0 0-2l2-1.6-2-3.4-2.4 1a7.6 7.6 0 0 0-1.7-1L15 3.5h-4l-.4 2.5a7.6 7.6 0 0 0-1.7 1l-2.4-1-2 3.4L6.6 11a7.5 7.5 0 0 0 0 2l-2 1.6 2 3.4 2.4-1a7.6 7.6 0 0 0 1.7 1l.4 2.5h4l.4-2.5a7.6 7.6 0 0 0 1.7-1l2.4 1 2-3.4zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" transform="translate(-1 0)"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main id="arena" class="arena" aria-label="Playing field. Press and hold to key.">
+    <div class="ring" aria-hidden="true"></div>
+    <div id="hero" class="hero" aria-hidden="true">🧍</div>
+    <div id="mobs"></div>
+
+    <div id="entry" class="entry" aria-live="polite" hidden>
+      <span id="typed" class="typed"></span><span id="live" class="live marks"></span>
+    </div>
+
+    <div id="overlay" class="overlay">
+      <div class="panel">
+        <h2 id="ovTitle">Morse Survivors</h2>
+        <div id="ovBody"></div>
+        <button id="ovBtn" class="btn primary big">Start</button>
+        <p id="ovFoot" class="fine"></p>
+      </div>
+    </div>
+  </main>
+
+  <input id="typeBox" class="type-box" type="text" autocomplete="off" autocapitalize="characters"
+         autocorrect="off" spellcheck="false" enterkeyhint="done" aria-label="Type creature names">
+
+  <div id="scrim" class="scrim" hidden></div>
+  <aside id="settings" class="drawer" aria-label="Settings" aria-hidden="true">
+    <div class="drawer-head">
+      <h2>Settings</h2>
+      <button id="closeSettings" class="icon-btn" aria-label="Close settings">✕</button>
+    </div>
+
+    <fieldset>
+      <legend>Appearance</legend>
+      <div class="seg" role="radiogroup" aria-label="Theme">
+        <label><input type="radio" name="theme" value="system"><span>System</span></label>
+        <label><input type="radio" name="theme" value="light"><span>Light</span></label>
+        <label><input type="radio" name="theme" value="dark"><span>Dark</span></label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>What you key</legend>
+      <div class="seg" role="radiogroup" aria-label="Mode">
+        <label><input type="radio" name="mode" value="words"><span>Words</span></label>
+        <label><input type="radio" name="mode" value="letters"><span>Letters</span></label>
+      </div>
+      <p class="fine" id="modeNote"></p>
+      <div id="wordsOpts">
+        <label class="range">
+          <span>Longest name <output id="maxLenOut"></output></span>
+          <input type="range" id="maxLen" min="3" max="8" step="1">
+        </label>
+      </div>
+      <div id="lettersOpts">
+        <label class="check"><input type="checkbox" id="letters"> Letters <small>A–Z</small></label>
+        <label class="check"><input type="checkbox" id="numbers"> Numbers <small>0–9</small></label>
+        <label class="field">
+          <span>Only these characters <small>(blank = all of the above)</small></span>
+          <input type="text" id="only" placeholder="ETANIM" autocomplete="off" spellcheck="false" autocapitalize="characters">
+        </label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Input</legend>
+      <div class="seg" role="radiogroup" aria-label="Input">
+        <label><input type="radio" name="input" value="morse"><span>Morse key</span></label>
+        <label><input type="radio" name="input" value="typing"><span>Typing</span></label>
+      </div>
+      <p class="fine">Morse: hold <kbd>Space</kbd>, or press and hold anywhere on the field. Typing is for practice: use the keyboard, or tap the field to bring up the phone keyboard.</p>
+      <span class="sub">When a letter doesn't match anything</span>
+      <div class="seg" role="radiogroup" aria-label="On a wrong letter">
+        <label><input type="radio" name="onWrong" value="reset"><span>Start the word over</span></label>
+        <label><input type="radio" name="onWrong" value="ignore"><span>Ignore the letter</span></label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Display</legend>
+      <label class="check"><input type="checkbox" id="showCode"> Show Morse code under each creature</label>
+      <label class="check"><input type="checkbox" id="showName"> Show the name under each creature</label>
+      <label class="check"><input type="checkbox" id="highlight"> Highlight creatures that match what you've keyed</label>
+      <span class="sub">Keyer display <small>(shows what you've keyed so far)</small></span>
+      <div class="pos-picker">
+        <div class="pos-grid" role="radiogroup" aria-label="Keyer display position">
+          <label title="Top left"><input type="radio" name="keyerPos" value="tl"><span></span></label>
+          <label title="Top center"><input type="radio" name="keyerPos" value="tc"><span></span></label>
+          <label title="Top right"><input type="radio" name="keyerPos" value="tr"><span></span></label>
+          <label title="Middle left"><input type="radio" name="keyerPos" value="ml"><span></span></label>
+          <label title="Center"><input type="radio" name="keyerPos" value="mc"><span></span></label>
+          <label title="Middle right"><input type="radio" name="keyerPos" value="mr"><span></span></label>
+          <label title="Bottom left"><input type="radio" name="keyerPos" value="bl"><span></span></label>
+          <label title="Bottom center"><input type="radio" name="keyerPos" value="bc"><span></span></label>
+          <label title="Bottom right"><input type="radio" name="keyerPos" value="br"><span></span></label>
+        </div>
+        <label class="seg off-btn"><input type="radio" name="keyerPos" value="off"><span>Off</span></label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Difficulty</legend>
+      <label class="range">
+        <span>Hearts <output id="heartsMaxOut"></output></span>
+        <input type="range" id="heartsMax" min="1" max="9" step="1">
+      </label>
+      <label class="range">
+        <span>Time for a creature to reach you <output id="approachOut"></output></span>
+        <input type="range" id="approach" min="6" max="90" step="1">
+      </label>
+      <label class="range">
+        <span>Creatures speed up by <output id="speedUpOut"></output></span>
+        <input type="range" id="speedUp" min="0" max="100" step="5">
+      </label>
+      <label class="range">
+        <span>A new creature every <output id="spawnOut"></output></span>
+        <input type="range" id="spawn" min="1" max="15" step="0.5">
+      </label>
+      <label class="range">
+        <span>New creatures come faster by <output id="spawnUpOut"></output></span>
+        <input type="range" id="spawnUp" min="0" max="100" step="5">
+      </label>
+      <label class="range">
+        <span>Most creatures at once <output id="maxMobsOut"></output></span>
+        <input type="range" id="maxMobs" min="1" max="20" step="1">
+      </label>
+      <details class="timing">
+        <summary>How it ramps up</summary>
+        <table id="ramp"></table>
+      </details>
+    </fieldset>
+
+    <fieldset>
+      <legend>Keying speed</legend>
+      <label class="range">
+        <span>Character speed <output id="wpmOut"></output></span>
+        <input type="range" id="wpm" min="5" max="40" step="1">
+      </label>
+      <label class="check"><input type="checkbox" id="farnsworth"> Farnsworth spacing <small>(letters keep their speed, the gap that ends a letter gets longer)</small></label>
+      <label class="range" id="fwpmRow">
+        <span>Overall speed <output id="fwpmOut"></output></span>
+        <input type="range" id="fwpm" min="3" max="40" step="1">
+      </label>
+      <details class="timing">
+        <summary>Timing in milliseconds</summary>
+        <table id="timing"></table>
+        <p class="fine">Speeds use the standard "PARIS" word: one dot lasts 1200 ÷ WPM ms.</p>
+      </details>
+    </fieldset>
+
+    <fieldset>
+      <legend>Sound</legend>
+      <label class="check"><input type="checkbox" id="sound"> Sidetone</label>
+      <label class="check"><input type="checkbox" id="sfx"> Sound effects</label>
+      <label class="range">
+        <span>Pitch <output id="pitchOut"></output></span>
+        <input type="range" id="pitch" min="300" max="1000" step="10">
+      </label>
+      <label class="range">
+        <span>Volume <output id="volumeOut"></output></span>
+        <input type="range" id="volume" min="0" max="100" step="1">
+      </label>
+    </fieldset>
+
+    <fieldset>
+      <button id="resetSettings" class="btn">Reset all settings</button>
+    </fieldset>
+  </aside>
+
+  <script src="js/morse.js"></script>
+  <script src="js/creatures.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>
