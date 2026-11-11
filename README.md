@@ -2,6 +2,8 @@
 
 A browser game for practicing Morse code. Creatures close in on you from every side. Key a creature's name in Morse and the **closest** one that matches pops. You have 5 hearts, and you lose one each time a creature reaches you. The longer you last, the faster they come.
 
+**Play it: https://mattcruikshank.github.io/MorseSurvivors/**
+
 It works on desktop and on phones, and it's a companion to the [Morse Code trainer](https://mattcruikshank.github.io/MorseCode/). The two share a look, keyer and timing. On its first run, the game picks up your speed and sound settings from the trainer.
 
 ## How to play
