@@ -136,10 +136,12 @@ kbd {
 .arena {
   --mon: 48px;     /* creature emoji size, set from JS */
   --hero: 56px;
+  --hero-gap: 14px;
+  --hero-y: calc(100% - var(--hero-gap) - var(--hero) / 2); /* the player's center */
   position: relative; flex: 1; overflow: hidden;
   background:
-    repeating-radial-gradient(circle at 50% 50%, transparent 0 79px, var(--field-line) 79px 80px),
-    radial-gradient(closest-side at 50% 50%, var(--field-glow), var(--field) 100%);
+    repeating-radial-gradient(circle at 50% var(--hero-y), transparent 0 79px, var(--field-line) 79px 80px),
+    radial-gradient(farthest-side at 50% 100%, var(--field-glow), var(--field) 100%);
   touch-action: none; user-select: none; -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent; cursor: pointer;
 }
@@ -147,7 +149,7 @@ kbd {
 @keyframes hurtflash { 0% { box-shadow: inset 0 0 0 9999px rgba(255, 30, 30, .28); } 100% { box-shadow: inset 0 0 0 9999px rgba(255, 30, 30, 0); } }
 
 .ring {
-  position: absolute; left: 50%; top: 50%;
+  position: absolute; left: 50%; top: var(--hero-y);
   width: calc(var(--hero) * 1.9); height: calc(var(--hero) * 1.9);
   transform: translate(-50%, -50%); border-radius: 50%;
   border: 2px dashed var(--ink-faint);
@@ -157,7 +159,7 @@ kbd {
 .arena.bad .ring { border-style: solid; border-color: var(--danger); box-shadow: 0 0 18px var(--danger); transition: none; }
 
 .hero {
-  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  position: absolute; left: 50%; top: var(--hero-y); transform: translate(-50%, -50%);
   font-size: var(--hero); line-height: 1;
   filter: drop-shadow(0 4px 6px rgba(0, 0, 0, .35));
 }
@@ -170,41 +172,44 @@ kbd {
 }
 
 /* ---------- Creatures ---------- */
+/* Each creature is a little train headed for the player: character in front, then the
+   creature, then its Morse code. .mob is a zero-size anchor at the head; JS sets each
+   part's left/top along the direction of travel, and `translate` centers it there. */
 .mob {
-  position: absolute; left: 0; top: 0;
-  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  position: absolute; left: 0; top: 0; width: 0; height: 0;
   pointer-events: none; will-change: transform;
+}
+.mob > * { position: absolute; translate: -50% -50%; white-space: nowrap; }
+.mob .ch { z-index: 2; }
+.mob .ch {
+  font: calc(var(--mon) * .62)/1 'Special Elite', 'Courier New', monospace;
+  color: var(--label-fg); background: var(--label-bg);
+  min-width: 1.4em; padding: 3px 6px 1px; border-radius: 8px; text-align: center;
+  border: 2px solid var(--accent);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .25);
 }
 .mob .e {
   font-size: var(--mon); line-height: 1.05;
   filter: drop-shadow(0 3px 4px rgba(0, 0, 0, .35));
-  transition: transform .15s;
 }
-.mob .nm, .mob .cd {
-  background: var(--label-bg); color: var(--label-fg);
-  border-radius: 6px; padding: 1px 6px; white-space: nowrap;
+.mob .cd {
+  display: flex; gap: 3px; align-items: center;
+  background: var(--label-bg); border-radius: 6px; padding: 5px 7px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, .2);
 }
-.mob .nm { font: var(--lab, 20px)/1.2 'Special Elite', 'Courier New', monospace; letter-spacing: .08em; }
-.mob .nm b { font-weight: inherit; color: var(--match); text-shadow: 0 0 6px var(--match); }
-.mob .cd { display: flex; gap: 7px; padding: 4px 6px; }
-.mob .cd:empty { display: none; }
-.mob .grp { display: flex; gap: 3px; align-items: center; }
+.arena.no-code .mob .cd { display: none; }
 .marks i { display: block; height: 6px; border-radius: 3px; background: var(--ink); }
 .marks i.d { width: 6px; }
 .marks i.h { width: 17px; }
-.mob .grp.on i { background: var(--match); box-shadow: 0 0 4px var(--match); }
-.mob.match .e { transform: scale(1.18); }
-.mob.match .nm, .mob.match .cd { outline: 2px solid var(--match); }
-.mob.match.dim .e { transform: none; }
 
 .mob.pop { z-index: 2; }
 .mob.pop .e { animation: pop .42s ease-out forwards; }
-.mob.pop .nm, .mob.pop .cd { animation: fade .25s forwards; }
+.mob.pop .ch, .mob.pop .cd { animation: fade .3s forwards; }
+.mob.pop .ch { border-color: var(--led-dot); }
 @keyframes pop { 0% { transform: scale(1.2); } 35% { transform: scale(1.9); opacity: 1; } 100% { transform: scale(2.4); opacity: 0; } }
 @keyframes fade { to { opacity: 0; } }
 .mob.bite .e { animation: bite .4s ease-in forwards; }
-.mob.bite .nm, .mob.bite .cd { animation: fade .15s forwards; }
+.mob.bite .ch, .mob.bite .cd { animation: fade .15s forwards; }
 @keyframes bite { 0% { transform: scale(1.3); } 100% { transform: scale(.2); opacity: 0; } }
 
 /* ---------- Keyer display (optional, one of 9 positions) ---------- */
@@ -225,17 +230,19 @@ kbd {
 .entry[data-pos$="r"] { right: 0; }
 .entry[data-pos="tc"], .entry[data-pos="bc"] { transform: translateX(-50%); margin-left: 0; margin-right: 0; }
 .entry[data-pos="ml"], .entry[data-pos="mr"] { transform: translateY(-50%); margin-top: 0; margin-bottom: 0; }
-/* Center: sit just below the hero rather than on top of it. */
-.entry[data-pos="mc"] { transform: translate(-50%, calc(var(--hero) * 1.15)); margin: 0; }
+.entry[data-pos="mc"] { transform: translate(-50%, -50%); margin: 0; }
+/* Bottom center: sit just above the player rather than on top of them. */
+.entry[data-pos="bc"] { bottom: calc(var(--hero-gap) + var(--hero) * 1.5); margin-bottom: 0; }
 .typed { font: 26px/1 'Special Elite', 'Courier New', monospace; letter-spacing: .08em; color: var(--ink); }
 .typed:empty::before { content: '·'; color: var(--ink-faint); }
+.typed.ok { color: var(--led-dot); }
+.typed.bad { color: var(--danger); }
 .live { display: flex; gap: 3px; align-items: center; }
 .live i { height: 8px; }
 .live i.d { width: 8px; }
 .live i.h { width: 22px; }
 .live i.pending { background: var(--ink-faint); }
 .entry.bad { border-color: var(--danger); animation: shake .35s; }
-.entry.bad .typed { color: var(--danger); }
 .entry[data-pos="tc"].bad, .entry[data-pos="bc"].bad, .entry[data-pos="mc"].bad, .entry[data-pos="ml"].bad, .entry[data-pos="mr"].bad { animation: none; }
 @keyframes shake {
   20% { translate: -6px 0; } 40% { translate: 5px 0; }
@@ -270,7 +277,13 @@ kbd {
 .panel .big-stats b { font-size: 1.9rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .panel .big-stats span { color: var(--muted); font-size: .85rem; }
 .panel .best { color: var(--accent); font-weight: 700; }
-.panel .lineup { font-size: 1.7rem; letter-spacing: 4px; margin: 4px 0 6px; }
+.cast { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; margin: 6px 0 4px; }
+.cast span {
+  display: inline-flex; align-items: center; gap: 2px;
+  padding: 1px 5px; border: 1px solid var(--border); border-radius: 7px; background: var(--bg);
+  font-size: 1.15rem; line-height: 1.4;
+}
+.cast b { font: 1rem 'Special Elite', 'Courier New', monospace; min-width: .8em; }
 .fine { font-size: .8rem; color: var(--muted); }
 
 /* ---------- Settings drawer ---------- */

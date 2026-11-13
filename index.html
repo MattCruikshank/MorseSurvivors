@@ -74,26 +74,13 @@
     </fieldset>
 
     <fieldset>
-      <legend>What you key</legend>
-      <div class="seg" role="radiogroup" aria-label="Mode">
-        <label><input type="radio" name="mode" value="words"><span>Words</span></label>
-        <label><input type="radio" name="mode" value="letters"><span>Letters</span></label>
-      </div>
-      <p class="fine" id="modeNote"></p>
-      <div id="wordsOpts">
-        <label class="range">
-          <span>Longest name <output id="maxLenOut"></output></span>
-          <input type="range" id="maxLen" min="3" max="8" step="1">
-        </label>
-      </div>
-      <div id="lettersOpts">
-        <label class="check"><input type="checkbox" id="letters"> Letters <small>A–Z</small></label>
-        <label class="check"><input type="checkbox" id="numbers"> Numbers <small>0–9</small></label>
-        <label class="field">
-          <span>Only these characters <small>(blank = all of the above)</small></span>
-          <input type="text" id="only" placeholder="ETANIM" autocomplete="off" spellcheck="false" autocapitalize="characters">
-        </label>
-      </div>
+      <legend>Characters</legend>
+      <label class="check"><input type="checkbox" id="letters"> Letters <small>A–Z</small></label>
+      <label class="check"><input type="checkbox" id="numbers"> Numbers <small>0–9</small></label>
+      <label class="field">
+        <span>Only these characters <small id="onlyNote">(blank = all of the above)</small></span>
+        <input type="text" id="only" placeholder="ETANIM" autocomplete="off" spellcheck="false" autocapitalize="characters">
+      </label>
     </fieldset>
 
     <fieldset>
@@ -103,19 +90,12 @@
         <label><input type="radio" name="input" value="typing"><span>Typing</span></label>
       </div>
       <p class="fine">Morse: hold <kbd>Space</kbd>, or press and hold anywhere on the field. Typing is for practice: use the keyboard, or tap the field to bring up the phone keyboard.</p>
-      <span class="sub">When a letter doesn't match anything</span>
-      <div class="seg" role="radiogroup" aria-label="On a wrong letter">
-        <label><input type="radio" name="onWrong" value="reset"><span>Start the word over</span></label>
-        <label><input type="radio" name="onWrong" value="ignore"><span>Ignore the letter</span></label>
-      </div>
     </fieldset>
 
     <fieldset>
       <legend>Display</legend>
-      <label class="check"><input type="checkbox" id="showCode"> Show Morse code under each creature</label>
-      <label class="check"><input type="checkbox" id="showName"> Show the name under each creature</label>
-      <label class="check"><input type="checkbox" id="highlight"> Highlight creatures that match what you've keyed</label>
-      <span class="sub">Keyer display <small>(shows what you've keyed so far)</small></span>
+      <label class="check"><input type="checkbox" id="showCode"> Show the Morse code behind each creature</label>
+      <span class="sub">Keyer display <small>(shows what you're keying)</small></span>
       <div class="pos-picker">
         <div class="pos-grid" role="radiogroup" aria-label="Keyer display position">
           <label title="Top left"><input type="radio" name="keyerPos" value="tl"><span></span></label>

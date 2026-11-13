@@ -1,49 +1,42 @@
-// The creatures that close in on you. `e` is the emoji drawn on screen, `n` is the
-// name you key in Words mode. No name is a prefix of another, so a finished name
-// is never ambiguous (keying BAT can't be the start of something longer).
-const CREATURES = [
-  // 3 letters
-  { e: '🦇', n: 'BAT' },
-  { e: '🐀', n: 'RAT' },
-  { e: '🦉', n: 'OWL' },
-  { e: '🐜', n: 'ANT' },
-  { e: '🐝', n: 'BEE' },
-  { e: '🪰', n: 'FLY' },
-  { e: '👿', n: 'IMP' },
-  { e: '🦖', n: 'REX' },
-  { e: '🦊', n: 'FOX' },
-  { e: '🧝', n: 'ELF' },
-  { e: '🐛', n: 'BUG' },
-  // 4 letters
-  { e: '👹', n: 'OGRE' },
-  { e: '🦀', n: 'CRAB' },
-  { e: '🐺', n: 'WOLF' },
-  { e: '🐗', n: 'BOAR' },
-  { e: '🐻', n: 'BEAR' },
-  { e: '🦟', n: 'GNAT' },
-  { e: '🐊', n: 'CROC' },
-  { e: '🧙', n: 'MAGE' },
-  { e: '💩', n: 'POOP' },
-  // 5 letters
-  { e: '👻', n: 'GHOST' },
-  { e: '💀', n: 'SKULL' },
-  { e: '👽', n: 'ALIEN' },
-  { e: '🤖', n: 'ROBOT' },
-  { e: '🤡', n: 'CLOWN' },
-  { e: '🐍', n: 'SNAKE' },
-  { e: '🦈', n: 'SHARK' },
-  { e: '🦑', n: 'SQUID' },
-  { e: '🧞', n: 'GENIE' },
-  { e: '🧌', n: 'TROLL' },
-  // 6+ letters
-  { e: '🧟', n: 'ZOMBIE' },
-  { e: '🕷️', n: 'SPIDER' },
-  { e: '🐉', n: 'DRAGON' },
-  { e: '👺', n: 'GOBLIN' },
-  { e: '🦎', n: 'LIZARD' },
-  { e: '🧛', n: 'VAMPIRE' },
-  { e: '🐙', n: 'OCTOPUS' },
-  { e: '🎃', n: 'PUMPKIN' },
-  { e: '🦂', n: 'SCORPION' },
-  { e: '🦕', n: 'DINOSAUR' }
-];
+// One iconic creature per character. Letters use something whose name starts
+// with that letter (G is a Ghost, F is a Fox), so the picture helps you remember
+// the letter. Digits have no such link, so they just get their own creatures.
+// `n` is only shown on the title screen's cast list and in tooltips.
+const CAST = {
+  A: { e: '👽', n: 'Alien' },
+  B: { e: '🦇', n: 'Bat' },
+  C: { e: '🦀', n: 'Crab' },
+  D: { e: '🐉', n: 'Dragon' },
+  E: { e: '🦅', n: 'Eagle' },
+  F: { e: '🦊', n: 'Fox' },
+  G: { e: '👻', n: 'Ghost' },
+  H: { e: '🦛', n: 'Hippo' },
+  I: { e: '👿', n: 'Imp' },
+  J: { e: '🎃', n: 'Jack-o’-lantern' },
+  K: { e: '🦘', n: 'Kangaroo' },
+  L: { e: '🦁', n: 'Lion' },
+  M: { e: '🦟', n: 'Mosquito' },
+  N: { e: '🥷', n: 'Ninja' },
+  O: { e: '🦉', n: 'Owl' },
+  P: { e: '🐧', n: 'Penguin' },
+  Q: { e: '👸', n: 'Queen' },
+  R: { e: '🤖', n: 'Robot' },
+  S: { e: '🐍', n: 'Snake' },
+  T: { e: '🦖', n: 'T. rex' },
+  U: { e: '🦄', n: 'Unicorn' },
+  V: { e: '🧛', n: 'Vampire' },
+  W: { e: '🐺', n: 'Wolf' },
+  X: { e: '🩻', n: 'X-ray' },
+  Y: { e: '🪀', n: 'Yo-yo' },
+  Z: { e: '🧟', n: 'Zombie' },
+  0: { e: '💀', n: 'Skull' },
+  1: { e: '🦈', n: 'Shark' },
+  2: { e: '🐝', n: 'Bee' },
+  3: { e: '🦂', n: 'Scorpion' },
+  4: { e: '🐀', n: 'Rat' },
+  5: { e: '🤡', n: 'Clown' },
+  6: { e: '🦎', n: 'Lizard' },
+  7: { e: '🐛', n: 'Bug' },
+  8: { e: '🕷️', n: 'Spider' },
+  9: { e: '🐗', n: 'Boar' }
+};

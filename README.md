@@ -1,6 +1,6 @@
 # Morse Survivors
 
-A browser game for practicing Morse code. Creatures close in on you from every side. Key a creature's name in Morse and the **closest** one that matches pops. You have 5 hearts, and you lose one each time a creature reaches you. The longer you last, the faster they come.
+A browser game for practicing Morse code. Creatures come down at you from the top of the screen, and each one carries a character: **G** is the Ghost 👻, **F** is the Fox 🦊. Key the character in Morse and the **closest** creature carrying it pops. You have 5 hearts, and you lose one each time a creature reaches you. The longer you last, the faster they come.
 
 **Play it: https://mattcruikshank.github.io/MorseSurvivors/**
 
@@ -8,21 +8,19 @@ It works on desktop and on phones, and it's a companion to the [Morse Code train
 
 ## How to play
 
-- **Key:** hold <kbd>Space</kbd>, or press and hold anywhere on the playing field. A short press is a dot and a long press is a dash. Pause briefly to finish a letter.
-- **Words mode:** each creature has a name (🦇 BAT, 👻 GHOST, 🧛 VAMPIRE…). Key the whole name to pop it.
-- **Letters mode:** each creature carries one character. Key it to pop it.
-- Creatures that match what you've keyed so far are highlighted.
-- A run of 6 or more dots (the "error" prosign) clears what you've keyed. <kbd>Backspace</kbd> works too.
-- <kbd>Esc</kbd> pauses the game.
+- **Key:** hold <kbd>Space</kbd>, or press and hold anywhere on the playing field. A short press is a dot and a long press is a dash. Pause briefly to finish a character.
+- Each creature comes at you like a little train: its **character** leads, the **creature** follows, and its **Morse code** trails behind. Try to key it from the character alone, so you learn the code instead of reading it.
+- Letters A–Z each have a creature whose name starts with that letter. Digits 0–9 have their own creatures.
+- <kbd>Backspace</kbd>, or a run of 6 or more dots, cancels a character you're partway through. <kbd>Esc</kbd> pauses the game.
 
 ## Settings
 
 Settings are saved in your browser.
 
 - **Appearance:** System, Light or Dark theme
-- **What you key:** Words (with a "longest name" limit from 3 to 8+ letters) or Letters (A–Z, 0–9, or only the characters you list, e.g. `ETANIM`)
-- **Input:** Morse key, or typing for practice. You also choose what a wrong letter does: start the word over, or ignore the letter.
-- **Display:** Morse code under each creature, its name, match highlighting, and a keyer display. The keyer display is off by default and can sit in any of 9 spots on the screen.
+- **Characters:** letters A–Z and/or numbers 0–9, or only the characters you list (e.g. `ETANIM`)
+- **Input:** Morse key, or typing for practice
+- **Display:** show or hide the Morse code behind each creature, plus an optional keyer display. The keyer display is off by default and can sit in any of 9 spots on the screen.
 - **Difficulty:** hearts, time for a creature to reach you, how fast creatures speed up, how often new ones arrive (and how fast that ramps up), and the most on screen at once. A table shows the ramp-up over time.
 - **Keying speed:** WPM, with optional Farnsworth spacing
 - **Sound:** sidetone, sound effects, pitch and volume
@@ -46,5 +44,5 @@ Push to a repository, then go to **Settings → Pages**, choose **Deploy from a 
 | `index.html` | Page structure, overlays and the settings drawer |
 | `style.css` | Theme tokens (light/dark), playing field, creatures |
 | `js/morse.js` | Morse tables (shared with the trainer) |
-| `js/creatures.js` | The creatures: emoji and names |
+| `js/creatures.js` | The cast: one creature per character |
 | `js/game.js` | Game loop, spawning, keyer, audio, settings |

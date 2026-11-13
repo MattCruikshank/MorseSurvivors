@@ -13,18 +13,21 @@
   const KEY = 'morseSurvivors.settings';
   const DEFAULTS = {
     theme: 'system',
-    mode: 'words', maxLen: 5,
     letters: true, numbers: false, only: '',
-    input: 'morse', onWrong: 'reset',
-    showCode: true, showName: true, highlight: true, keyerPos: 'off',
-    heartsMax: 5, approach: 30, speedUp: 15, spawn: 5, spawnUp: 15, maxMobs: 8,
+    input: 'morse',
+    showCode: true, keyerPos: 'off',
+    heartsMax: 5, approach: 30, speedUp: 15, spawn: 4, spawnUp: 15, maxMobs: 8,
     wpm: 12, farnsworth: true, fwpm: 8,
     sound: true, sfx: true, pitch: 600, volume: 0.5
   };
   function loadSettings() {
     let saved = null;
     try { saved = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { /* ignore */ }
-    if (saved) return Object.assign({}, DEFAULTS, saved);
+    if (saved) {
+      const s = {};
+      for (const k of Object.keys(DEFAULTS)) s[k] = k in saved ? saved[k] : DEFAULTS[k]; // drop retired settings
+      return s;
+    }
     // First visit: borrow keying and sound preferences from the Morse Code trainer, if it ran on this site.
     const s = Object.assign({}, DEFAULTS);
     try {
@@ -48,7 +51,7 @@
   const letterGap = () => 3 * gapUnit();
 
   // Difficulty ramp. Both grow linearly with minutes played.
-  const approachAt = (min) => S.approach / (1 + (S.speedUp / 100) * min);          // seconds to reach you
+  const approachAt = (min) => S.approach / (1 + (S.speedUp / 100) * min);              // seconds to reach you
   const spawnEveryAt = (min) => Math.max(0.6, S.spawn / (1 + (S.spawnUp / 100) * min)); // seconds between spawns
 
   // ======================================================================
@@ -59,6 +62,15 @@
     for (const [ch, code] of Object.entries(set)) { codeToChar[code] = ch; charToCode[ch] = code; }
   }
 
+  function charPool() {
+    const only = Array.from(S.only.toUpperCase()).filter((c) => CAST[c]);
+    if (only.length) return [...new Set(only)];
+    let chars = [];
+    if (S.letters) chars = chars.concat(Object.keys(MORSE.letters));
+    if (S.numbers) chars = chars.concat(Object.keys(MORSE.numbers));
+    return chars.length ? chars : Object.keys(MORSE.letters);
+  }
+
   // ======================================================================
   // DOM
   // ======================================================================
@@ -67,15 +79,18 @@
   const heartsEl = $('#hearts'), scoreEl = $('#score'), clockEl = $('#clock');
   const overlay = $('#overlay'), ovTitle = $('#ovTitle'), ovBody = $('#ovBody'), ovBtn = $('#ovBtn'), ovFoot = $('#ovFoot');
 
-  let W = 0, H = 0, monSize = 48, heroSize = 56;
+  // The player stands at the bottom middle; HERO_GAP is the space below them.
+  const HERO_GAP = 14;
+  let W = 0, H = 0, monSize = 48, heroSize = 56, heroX = 0, heroY = 0;
   function measure() {
     W = arena.clientWidth; H = arena.clientHeight;
     monSize = clamp(Math.min(W, H) * 0.075, 30, 60);
     heroSize = monSize * 1.2;
+    heroX = W / 2;
+    heroY = H - HERO_GAP - heroSize / 2;
     arena.style.setProperty('--mon', monSize + 'px');
     arena.style.setProperty('--hero', heroSize + 'px');
-    const lab = clamp(monSize * 0.4, 14, 22);
-    mobsEl.style.setProperty('--lab', lab + 'px');
+    arena.style.setProperty('--hero-gap', HERO_GAP + 'px');
     for (const m of mobs) place(m);
   }
 
@@ -130,9 +145,8 @@
   // Game state
   // ======================================================================
   let state = 'title';   // title | playing | paused | over
-  let mobs = [];         // {label, emoji, el, nm, cd, ang, r, speed, wob, wf, wp, x, y, dead}
+  let mobs = [];         // {ch, el, ux, uy, r, speed, wob, wf, wp, x, y, dead}
   let t = 0, nextSpawn = 0, score = 0, hearts = 5, lastFrame = 0;
-  let buffer = '';       // letters keyed so far toward a name
   let overGuard = 0;
 
   const live = () => mobs.filter((m) => !m.dead);
@@ -140,12 +154,13 @@
   function startGame() {
     for (const m of mobs) m.el.remove();
     mobs = [];
-    t = 0; nextSpawn = 1; score = 0; hearts = S.heartsMax; buffer = '';
+    t = 0; nextSpawn = 1; score = 0; hearts = S.heartsMax;
     resetKeyer();
+    showKeyed('', '');
     hero.textContent = '🧍';
     state = 'playing';
     overlay.hidden = true;
-    renderHud(); renderEntry();
+    renderHud();
     ensureAudio();
     if (S.input === 'typing') focusTypeBox();
     lastFrame = performance.now();
@@ -170,8 +185,7 @@
     resetKeyer();
     hero.textContent = '🪦';
     sfx('over');
-    let best = { score: 0, time: 0 };
-    try { best = Object.assign(best, JSON.parse(localStorage.getItem('morseSurvivors.best') || '{}')); } catch (e) { /* ignore */ }
+    let best = readBest();
     const isBest = score > best.score || (score === best.score && t > best.time && score > 0);
     if (isBest) { best = { score, time: t }; try { localStorage.setItem('morseSurvivors.best', JSON.stringify(best)); } catch (e) { /* ignore */ } }
     overGuard = performance.now() + 900;
@@ -179,73 +193,52 @@
   }
 
   // ---- Spawning ----------------------------------------------------------
-  function namePool() {
-    const pool = CREATURES.filter((c) => c.n.length <= S.maxLen);
-    return pool.length ? pool : CREATURES;
-  }
-  function charPool() {
-    const only = Array.from(S.only.toUpperCase()).filter((c) => charToCode[c]);
-    if (only.length) return [...new Set(only)];
-    let chars = [];
-    if (S.letters) chars = chars.concat(Object.keys(MORSE.letters));
-    if (S.numbers) chars = chars.concat(Object.keys(MORSE.numbers));
-    return chars.length ? chars : Object.keys(MORSE.letters);
-  }
-
   function spawn() {
-    const onScreen = new Set(live().map((m) => m.label));
-    let label, emoji;
-    if (S.mode === 'letters') {
-      const pool = charPool();
-      const fresh = pool.filter((c) => !onScreen.has(c));
-      label = pick(fresh.length ? fresh : pool);
-      emoji = pick(CREATURES).e;
-    } else {
-      const pool = namePool();
-      const fresh = pool.filter((c) => !onScreen.has(c.n));
-      const c = pick(fresh.length ? fresh : pool);
-      label = c.n; emoji = c.e;
-    }
+    const pool = charPool();
+    const onScreen = new Set(live().map((m) => m.ch));
+    const fresh = pool.filter((c) => !onScreen.has(c));
+    const ch = pick(fresh.length ? fresh : pool);
 
-    // Pick a direction away from creatures that are already coming.
-    const others = live().map((m) => m.ang);
-    let ang = rand(0, Math.PI * 2), bestGap = -1;
+    // Enter from the top, at an x away from the creatures that have just come in.
+    const recent = live().filter((m) => m.y < H * 0.4);
+    const pad = monSize * 0.8;
+    let x = rand(pad, W - pad), bestGap = -1;
     for (let i = 0; i < 10; i++) {
-      const a = rand(0, Math.PI * 2);
-      let gap = Math.PI;
-      for (const o of others) { const d = Math.abs(((a - o + Math.PI * 3) % (Math.PI * 2)) - Math.PI); gap = Math.min(gap, d); }
-      if (gap > bestGap) { bestGap = gap; ang = a; }
+      const cx = rand(pad, Math.max(pad + 1, W - pad));
+      let gap = Infinity;
+      for (const m of recent) gap = Math.min(gap, Math.abs(cx - m.x));
+      if (gap > bestGap) { bestGap = gap; x = cx; }
     }
-    // Start just outside the field, along that direction.
-    const margin = monSize * 1.2;
-    const hx = W / 2 + margin, hy = H / 2 + margin;
-    const c = Math.abs(Math.cos(ang)) || 1e-6, s = Math.abs(Math.sin(ang)) || 1e-6;
-    const r = Math.min(hx / c, hy / s);
-    // Every creature takes the same time to arrive, whichever side it comes from.
-    const speed = r / approachAt(t / 60);
+    const y = -monSize * 0.6; // the train's head (its character) is first onto the screen
+    const dx = x - heroX, dy = y - heroY, r = Math.hypot(dx, dy);
+    const ux = dx / r, uy = dy / r;
+    const cast = CAST[ch] || { e: '👾', n: '' };
 
+    // A little train pointing at the player: character in front, then the creature, then its Morse code.
     const el = document.createElement('div');
     el.className = 'mob';
-    el.innerHTML = `<span class="e">${emoji}</span><span class="nm"></span><span class="cd marks"></span>`;
+    const at = (k) => `left:${(ux * k * monSize).toFixed(1)}px;top:${(uy * k * monSize).toFixed(1)}px`;
+    el.innerHTML = `<span class="ch" style="${at(0)}">${esc(ch)}</span>` +
+      `<span class="e" style="${at(1.0)}" title="${esc(cast.n)}">${cast.e}</span>` +
+      `<span class="cd marks" style="${at(2.0)}">${marks(charToCode[ch] || '')}</span>`;
     const m = {
-      label, emoji, el, nm: el.querySelector('.nm'), cd: el.querySelector('.cd'),
-      ang, r, speed, wob: rand(0, 0.35) * monSize, wf: rand(0.6, 1.6), wp: rand(0, 6.28),
-      x: 0, y: 0, dead: false
+      ch, el, ux, uy, r,
+      // Every creature takes the same time to reach you, wherever it starts.
+      speed: r / approachAt(t / 60),
+      wob: rand(0, 0.35) * monSize, wf: rand(0.4, 1.2), wp: rand(0, 6.28),
+      x, y, dead: false
     };
     mobsEl.appendChild(el);
     mobs.push(m);
-    renderMob(m);
     place(m);
   }
 
   function place(m) {
-    const ca = Math.cos(m.ang), sa = Math.sin(m.ang);
     const damp = clamp((m.r - heroSize) / (heroSize * 3), 0, 1); // fly straight at the end
     const w = m.wob * damp * Math.sin(t * m.wf * 2 * Math.PI + m.wp);
-    m.x = W / 2 + m.r * ca - sa * w;
-    m.y = H / 2 + m.r * sa + ca * w;
-    // The emoji sits on the path; labels hang below it.
-    m.el.style.transform = `translate(${m.x}px, ${m.y}px) translate(-50%, ${-monSize * 0.55}px)`;
+    m.x = heroX + m.r * m.ux - m.uy * w;
+    m.y = heroY + m.r * m.uy + m.ux * w;
+    m.el.style.transform = `translate(${m.x}px, ${m.y}px)`;
   }
 
   // ---- Main loop -----------------------------------------------------------
@@ -263,7 +256,7 @@
       if (live().length < S.maxMobs) { spawn(); nextSpawn = t + spawnEveryAt(t / 60); }
       else nextSpawn = t + 0.25;
     }
-    const hitR = heroSize * 0.5 + monSize * 0.3;
+    const hitR = heroSize * 0.45 + monSize * 0.3;
     for (const m of mobs) {
       if (m.dead) continue;
       m.r -= m.speed * dt;
@@ -289,50 +282,42 @@
     void hero.offsetWidth;
     hero.classList.add('hit'); arena.classList.add('hurt');
     renderHud(true);
-    // If what you were keying only matched the creature that just bit you, start fresh.
-    if (buffer && !live().some((x) => x.label.startsWith(buffer))) { buffer = ''; renderAllMobs(); renderEntry(); }
     if (hearts <= 0) gameOver();
   }
 
-  function popClosest(label) {
+  // ======================================================================
+  // Entering a character (from Morse or typing)
+  // ======================================================================
+  function enterChar(ch) {
+    if (state !== 'playing') return;
     let best = null;
-    for (const m of live()) if (m.label === label && (!best || m.r < best.r)) best = m;
-    if (!best) return;
+    for (const m of live()) if (m.ch === ch && (!best || m.r < best.r)) best = m;
+    if (!best) return wrong(ch);
     best.el.querySelector('.e').textContent = '💥';
     removeMob(best, 'pop', 450);
     score++;
     sfx('pop');
     renderHud();
-  }
-
-  // ======================================================================
-  // Entering characters (from Morse or typing)
-  // ======================================================================
-  function enterChar(ch) {
-    if (state !== 'playing') return;
-    const next = buffer + ch;
-    const matches = live().filter((m) => m.label.startsWith(next));
-    if (!matches.length) return wrong(next);
-    if (matches.some((m) => m.label === next)) { popClosest(next); buffer = ''; }
-    else buffer = next;
-    renderAllMobs(); renderEntry();
+    showKeyed(ch, 'ok');
   }
 
   let badTimer = 0;
-  function wrong(shown) {
+  function wrong(ch) {
     sfx('wrong');
-    if (S.onWrong === 'reset') buffer = '';
     arena.classList.add('bad');
     entry.classList.remove('bad'); void entry.offsetWidth; entry.classList.add('bad');
-    typedEl.textContent = shown;
+    showKeyed(ch, 'bad');
     clearTimeout(badTimer);
-    badTimer = setTimeout(() => { arena.classList.remove('bad'); entry.classList.remove('bad'); renderEntry(); }, 450);
-    renderAllMobs();
+    badTimer = setTimeout(() => { arena.classList.remove('bad'); entry.classList.remove('bad'); }, 450);
   }
 
-  function clearBuffer() {
-    buffer = '';
-    renderAllMobs(); renderEntry();
+  // The keyer display shows the last character you keyed, briefly.
+  let keyedTimer = 0;
+  function showKeyed(ch, kind) {
+    typedEl.textContent = ch;
+    typedEl.className = 'typed' + (kind ? ' ' + kind : '');
+    clearTimeout(keyedTimer);
+    if (ch) keyedTimer = setTimeout(() => { typedEl.textContent = ''; typedEl.className = 'typed'; }, 900);
   }
 
   // ======================================================================
@@ -349,6 +334,7 @@
     clearTimeout(letterTimer);
     toneOn();
     arena.classList.add('tx');
+    if (!code) showKeyed('', '');
     preview();
   }
   function preview() {
@@ -371,10 +357,9 @@
     const c = code;
     code = '';
     renderLive();
-    if (!c) return;
-    if (/^\.{6,}$/.test(c)) return clearBuffer(); // the "error" prosign: a run of dots wipes your input
+    if (!c || /^\.{6,}$/.test(c)) return; // a run of dots (the "error" prosign) just cancels
     const ch = codeToChar[c];
-    if (!ch) return wrong(buffer + '?');
+    if (!ch) return wrong('?');
     enterChar(ch);
   }
   function resetKeyer() {
@@ -387,21 +372,7 @@
   // ======================================================================
   // Rendering
   // ======================================================================
-  const marks = (c) => Array.from(c).map((s) => `<i class="${s === '.' ? 'd' : 'h'}"></i>`).join('');
-
-  function renderMob(m) {
-    const matched = buffer && m.label.startsWith(buffer) ? buffer.length : 0;
-    const hl = S.highlight ? matched : 0;
-    m.el.classList.toggle('match', hl > 0);
-    m.nm.hidden = !S.showName;
-    if (S.showName) m.nm.innerHTML = `<b>${esc(m.label.slice(0, hl))}</b>${esc(m.label.slice(hl))}`;
-    m.cd.hidden = !S.showCode;
-    if (S.showCode) {
-      m.cd.innerHTML = Array.from(m.label).map((ch, i) =>
-        `<span class="grp${i < hl ? ' on' : ''}">${marks(charToCode[ch] || '')}</span>`).join('');
-    }
-  }
-  function renderAllMobs() { for (const m of mobs) if (!m.dead) renderMob(m); }
+  function marks(c) { return Array.from(c).map((s) => `<i class="${s === '.' ? 'd' : 'h'}"></i>`).join(''); }
 
   function renderLive(pending) {
     if (S.keyerPos === 'off') return;
@@ -410,7 +381,6 @@
   function renderEntry() {
     entry.hidden = S.keyerPos === 'off';
     entry.dataset.pos = S.keyerPos;
-    typedEl.textContent = buffer;
     renderLive();
   }
 
@@ -431,8 +401,11 @@
     clockEl.textContent = fmtTime(t);
   }
 
-  function lineup() {
-    return CREATURES.filter((c) => c.n.length <= Math.max(5, S.maxLen)).slice(0, 12).map((c) => c.e).join('');
+  function castList() {
+    return '<div class="cast">' + charPool().map((ch) => {
+      const c = CAST[ch];
+      return `<span title="${esc(c.n)}"><b>${esc(ch)}</b>${c.e}</span>`;
+    }).join('') + '</div>';
   }
   function howToKey() {
     return S.input === 'typing'
@@ -445,18 +418,17 @@
     ovFoot.textContent = '';
     if (kind === 'title') {
       ovTitle.textContent = 'Morse Survivors';
-      const what = S.mode === 'letters' ? 'the character it carries' : 'its name';
-      ovBody.innerHTML = `<div class="lineup">${lineup()}</div>
+      ovBody.innerHTML = `${castList()}
         <ul>
-          <li>Creatures are closing in on you from every side.</li>
-          <li>To pop one, ${howToKey()}. Key ${what} and the <b>closest</b> one that matches goes 💥.</li>
+          <li>Creatures come down at you from the top. Each one carries a character, like <b>G</b> for the Ghost 👻.</li>
+          <li>To pop one, ${howToKey()}. The <b>closest</b> one with that character goes 💥.</li>
+          <li>The character leads the way, the creature follows, and its Morse code trails behind. Try to key it before you read the code.</li>
           <li>You have ${S.heartsMax} ${S.heartsMax === 1 ? 'heart' : 'hearts'}. You lose one each time a creature reaches you.</li>
-          <li>They get faster, and come more often, the longer you last.</li>
         </ul>`;
       ovBtn.textContent = 'Start';
       const best = readBest();
       ovFoot.innerHTML = (best.score ? `Best: ${best.score} popped in ${fmtTime(best.time)}. ` : '') +
-        'Change the speed, mode and more in Settings ⚙.';
+        'Change the speed, characters and more in Settings ⚙.';
     } else if (kind === 'paused') {
       ovTitle.textContent = 'Paused';
       ovBody.innerHTML = `<p>${score} popped, ${fmtTime(t)} survived.</p>
@@ -491,20 +463,13 @@
     if (S.theme === 'light' || S.theme === 'dark') document.documentElement.setAttribute('data-theme', S.theme);
     else document.documentElement.removeAttribute('data-theme');
   }
-  function updateModeUI() {
-    $('#wordsOpts').hidden = S.mode !== 'words';
-    $('#lettersOpts').hidden = S.mode !== 'letters';
-    $('#modeNote').textContent = S.mode === 'words'
-      ? 'Each creature has a name, like BAT or GHOST. Key the name to pop it.'
-      : 'Each creature carries one character. Key it to pop it.';
-    const pool = CREATURES.filter((c) => c.n.length <= S.maxLen);
-    $('#maxLenOut').textContent = `${S.maxLen}${S.maxLen >= 8 ? '+' : ''} letters (${pool.length} creatures)`;
-    const g = $('#lettersOpts');
+  function updateCharsUI() {
     const onlyOn = S.only.trim().length > 0;
     for (const id of ['letters', 'numbers']) $('#' + id).closest('label').classList.toggle('disabled-group', onlyOn);
-    g.querySelector('.field small').textContent = onlyOn ? `(using ${charPool().join(' ')})` : '(blank = all of the above)';
+    $('#onlyNote').textContent = onlyOn ? `(using ${charPool().join(' ')})` : '(blank = all of the above)';
     if (state === 'title') showOverlay('title');
   }
+  function updateCodeUI() { arena.classList.toggle('no-code', !S.showCode); }
   function updateSpeedUI() {
     $('#wpm').value = S.wpm;
     $('#fwpm').max = S.wpm;
@@ -556,23 +521,20 @@
 
   function bindSettings() {
     bindRadio('theme', 'theme', applyTheme);
-    bindRadio('mode', 'mode', () => { clearBuffer(); updateModeUI(); });
     bindRadio('input', 'input', () => { resetKeyer(); if (state === 'title') showOverlay('title'); });
-    bindRadio('onWrong', 'onWrong');
     bindRadio('keyerPos', 'keyerPos', renderEntry);
 
-    bindRange('maxLen', updateModeUI);
     for (const id of ['letters', 'numbers']) {
-      bindCheck(id, (el) => { if (!S.letters && !S.numbers) { S[id] = true; el.checked = true; save(); } updateModeUI(); });
+      bindCheck(id, (el) => { if (!S.letters && !S.numbers) { S[id] = true; el.checked = true; save(); } updateCharsUI(); });
     }
     const only = $('#only');
     only.value = S.only;
     only.addEventListener('input', () => {
-      S.only = Array.from(only.value.toUpperCase()).filter((c) => charToCode[c]).join('');
-      save(); updateModeUI();
+      S.only = Array.from(only.value.toUpperCase()).filter((c) => CAST[c]).join('');
+      save(); updateCharsUI();
     });
 
-    for (const id of ['showCode', 'showName', 'highlight']) bindCheck(id, renderAllMobs);
+    bindCheck('showCode', updateCodeUI);
 
     bindRange('heartsMax', () => {
       if (state === 'title') { hearts = S.heartsMax; showOverlay('title'); }
@@ -603,7 +565,7 @@
       location.reload();
     });
 
-    updateModeUI(); updateSpeedUI(); updateDifficultyUI();
+    updateCharsUI(); updateCodeUI(); updateSpeedUI(); updateDifficultyUI();
   }
 
   const drawer = $('#settings'), scrim = $('#scrim');
@@ -638,8 +600,7 @@
       return;
     }
     if (drawerOpen()) return;
-    const overlayUp = state !== 'playing';
-    if (overlayUp && (isSpace(e) || e.key === 'Enter')) {
+    if (state !== 'playing' && (isSpace(e) || e.key === 'Enter')) {
       if (e.target.tagName === 'BUTTON' && e.key === 'Enter') return; // let the focused button click itself
       e.preventDefault();
       if (!e.repeat) overlayAction();
@@ -654,7 +615,6 @@
     if (e.key === 'Backspace') {
       e.preventDefault();
       if (code) { clearTimeout(letterTimer); code = ''; renderLive(); }
-      else if (buffer) { buffer = buffer.slice(0, -1); renderAllMobs(); renderEntry(); }
       return;
     }
     if (S.input === 'typing' && e.target !== typeBox && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
